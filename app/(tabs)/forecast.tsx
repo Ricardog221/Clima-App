@@ -1,83 +1,32 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView, TextInput, StyleSheet } from 'react-native';
 
-interface ForecastData {
-  date: string;
-  tempMax: number;
-  tempMin: number;
-}
+const API_KEY = '852bcb0c3a22c2eef8e8dba6e9d86446'; // Reemplaza con tu propia clave si es necesario
 
-export default function ForecastScreen() {
-  const [city, setCity] = useState('');
-  const [forecast, setForecast] = useState<ForecastData[]>([]);
-  const [loading, setLoading] = useState(false);
+export default function Forecast() {
+  const [city, setCity] = useState('La Paz');
+  const [forecast, setForecast] = useState<any>(null);
 
-  const getCoordinates = async (cityName: string): Promise<{ lat: number; lon: number } | null> => {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}`);
-      const data = await res.json();
-      if (data.length === 0) return null;
-      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
-  };
-
-  const getForecast = async () => {
-    setLoading(true);
-    setForecast([]);
-
-    const coords = await getCoordinates(city);
-    if (!coords) {
-      setLoading(false);
-      Alert.alert('Error', 'Ciudad no encontrada');
-      return;
-    }
-
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
-
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      const days = data.daily.time.map((date: string, i: number) => ({
-        date,
-        tempMax: data.daily.temperature_2m_max[i],
-        tempMin: data.daily.temperature_2m_min[i],
-      }));
-      setForecast(days);
-    } catch (err) {
-      Alert.alert('Error', 'No se pudo obtener el pronóstico');
-    }
-
-    setLoading(false);
-  };
+  useEffect(() => {
+    fetch(`https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${city}&days=15`)
+      .then((res) => res.json())
+      .then((data) => setForecast(data))
+      .catch((error) => console.error('Error fetching forecast:', error));
+  }, [city]);
 
   return (
-    <View style={{ padding: 20, flex: 1 }}>
-      <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Pronóstico de 15 días</Text>
+    <View style={styles.container}>
       <TextInput
-        placeholder="Ej. Ciudad de México"
-        value={city}
-        onChangeText={setCity}
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          borderRadius: 5,
-          padding: 10,
-          marginVertical: 10,
-        }}
+        style={styles.input}
+        placeholder="Escribe una ciudad"
+        onSubmitEditing={(e) => setCity(e.nativeEvent.text)}
+        returnKeyType="search"
       />
-      <Button title="Buscar pronóstico" onPress={getForecast} />
-
-      {loading && <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }} />}
-
-      <ScrollView style={{ marginTop: 20 }}>
-        {forecast.map((day, index) => (
-          <View key={index} style={{ marginBottom: 10 }}>
-            <Text style={{ fontWeight: 'bold' }}>{day.date}</Text>
-            <Text>Máx: {day.tempMax} °C</Text>
-            <Text>Mín: {day.tempMin} °C</Text>
+      <ScrollView>
+        {forecast?.forecast?.forecastday?.map((day: any, i: number) => (
+          <View key={i} style={styles.dayCard}>
+            <Text style={styles.date}>{day.date}</Text>
+            <Text>{day.day.avgtemp_c}°C - {day.day.condition.text}</Text>
           </View>
         ))}
       </ScrollView>
@@ -85,3 +34,27 @@ export default function ForecastScreen() {
   );
 }
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  input: {
+    borderColor: '#ccc',
+    borderWidth: 1,
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 8,
+  },
+  dayCard: {
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+  },
+  date: {
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+});

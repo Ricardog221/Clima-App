@@ -1,76 +1,37 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, ActivityIndicator, Alert } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 
-interface Weather {
-  temperature: number;
-  windspeed: number;
-}
+const API_KEY = '852bcb0c3a22c2eef8e8dba6e9d86446';
 
 export default function CurrentWeather() {
-  const [city, setCity] = useState('');
-  const [weather, setWeather] = useState<Weather | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [city, setCity] = useState('La Paz');
+  const [weather, setWeather] = useState<any>(null);
 
-  const getCoordinates = async (cityName: string): Promise<{ lat: number; lon: number } | null> => {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityName)}`);
-      const data = await res.json();
-      if (data.length === 0) return null;
-      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
-  };
-
-  const getWeather = async () => {
-    setLoading(true);
-    setWeather(null);
-
-    const coords = await getCoordinates(city);
-    if (!coords) {
-      setLoading(false);
-      Alert.alert('Error', 'Ciudad no encontrada');
-      return;
-    }
-
-    try {
-      const res = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current_weather=true&timezone=auto`
-      );
-      const data = await res.json();
-      setWeather(data.current_weather);
-    } catch (err) {
-      Alert.alert('Error', 'No se pudo obtener el clima');
-    }
-
-    setLoading(false);
-  };
+  useEffect(() => {
+    fetch(`https://api.weatherapi.com/v1/current.json?key=${API_KEY}&q=${city}`)
+      .then(res => res.json())
+      .then(data => setWeather(data));
+  }, [city]);
 
   return (
-    <View style={{ padding: 20 }}>
-      <Text style={{ fontSize: 18, fontWeight: 'bold' }}>Buscar Clima por Ciudad</Text>
-      <TextInput
-        placeholder="Ej. La Paz, Mexico"
-        value={city}
-        onChangeText={setCity}
-        style={{
-          borderWidth: 1,
-          borderColor: '#ccc',
-          borderRadius: 5,
-          padding: 10,
-          marginVertical: 10,
-        }}
-      />
-      <Button title="Buscar Clima" onPress={getWeather} />
-
-      {loading && <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }} />}
-      {weather && !loading && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={{ fontSize: 16 }}>Temperatura: {weather.temperature} °C</Text>
-          <Text>Viento: {weather.windspeed} km/h</Text>
-        </View>
-      )}
+    <View style={styles.container}>
+      <TextInput style={styles.input} placeholder="Ingresa ciudad" onSubmitEditing={(e) => setCity(e.nativeEvent.text)} />
+      {weather?.current ? (
+        <>
+          <Text style={styles.title}>{weather.location.name}, {weather.location.country}</Text>
+          <Text style={styles.temp}>{weather.current.temp_c}°C</Text>
+          <Text style={styles.condition}>{weather.current.condition.text}</Text>
+        </>
+      ) : <Text>Cargando clima...</Text>}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
+  input: { borderWidth: 1, padding: 8, marginBottom: 16, width: '80%' },
+  title: { fontSize: 24, fontWeight: 'bold' },
+  temp: { fontSize: 32, marginTop: 8 },
+  condition: { fontSize: 18, marginTop: 4 }
+});
+
